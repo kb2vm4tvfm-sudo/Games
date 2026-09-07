@@ -1,6 +1,6 @@
 # Airplane Mode — Offline Games
 
-Ten games in a single HTML file. No wifi, no cell signal, no ads, no tracking,
+Eleven games in a single HTML file. No wifi, no cell signal, no ads, no tracking,
 no external requests of any kind. Everything — code, styles, the word list, the
 sound effects — lives inside `index.html`.
 
@@ -36,6 +36,7 @@ npx http-server . -p 8080     # then open http://localhost:8080
 
 | | Game | What it is |
 |---|---|---|
+| ⬢ | **Hexanaut** | Offline take on Hexanaut.io: claim hex territory against four bots. Drag to steer, leave your land to draw a trail, return to claim everything you enclosed. Cross anyone's trail and they're out — including your own. |
 | 🔢 | **2048** | Swipe to merge tiles. Arrow keys on desktop. |
 | 🐍 | **Snake** | Swipe to turn. Speeds up as you eat. |
 | 🧱 | **Blocks** | Falling-block stacker with ghost piece, next preview, hard drop. |
@@ -46,6 +47,9 @@ npx http-server . -p 8080     # then open http://localhost:8080
 | 🧨 | **Breakout** | Drag the paddle. Levels get faster and the paddle gets narrower. |
 | 🧠 | **Memory** | Match every pair. 4×4, 4×5 or 4×6. |
 | 🔴 | **Connect 4** | Alpha-beta opponent at three strengths. Hard searches six plies. |
+
+Hexanaut is the only one that had an online original; the bots replace the
+other players so it plays the same with the radio off.
 
 Scores, times and settings are kept in `localStorage`, so they stay on the
 device and survive closing the tab.

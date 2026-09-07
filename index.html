@@ -214,7 +214,7 @@ canvas{display:block;touch-action:none;border-radius:14px;background:#0e1428}
     <div class="home-head">
       <div class="kicker">Airplane mode</div>
       <h2>Offline Games</h2>
-      <p>No wifi. No signal. No ads. Ten games that live entirely in this one file.</p>
+      <p>No wifi. No signal. No ads. Eleven games that live entirely in this one file.</p>
     </div>
     <div class="grid" id="cards"></div>
     <div class="foot">Everything runs on-device · scores saved locally</div>
@@ -444,6 +444,374 @@ function holdable(btn,fn){
   btn.addEventListener('click',e=>{if(e.detail===0)fn();});
   return stop;
 }
+
+/* ==================================================================
+   0. Hexanaut — offline territory capture vs bots
+   Hex grid uses "odd-r" offset coords (odd rows shifted right).
+   ================================================================== */
+reg({
+  id:'hex',name:'Hexanaut',emoji:'⬢',color:'#4fd6e0',
+  desc:'Claim land, close the loop, don’t get cut off.',
+  bestLabel(){const b=bestOf('hex');return b?'Best '+b+'%':'';},
+  start(root){
+    const COLS=46,ROWS=42,N=COLS*ROWS;
+    /* neighbour deltas [col,row] per direction, indexed by row parity */
+    const NB=[[[1,0],[0,-1],[-1,-1],[-1,0],[-1,1],[0,1]],   // even rows
+              [[1,0],[1,-1],[0,-1],[-1,0],[0,1],[1,1]]];    // odd rows
+    const DIRA=[0,-60,-120,180,120,60].map(d=>d*Math.PI/180); // screen angle of each dir
+    const SQ3=Math.sqrt(3);
+    const NAMES=['You','Ruby','Jade','Azure','Amber'];
+    const COLORS=['#4fd6e0','#f2606b','#5fd38a','#5b7cff','#f2b03c'];
+
+    const owner=new Int8Array(N).fill(-1);
+    const trail=new Int8Array(N).fill(-1);
+    let ents,me,raf,last,over,won,peak,feed,miniDirty,miniAt=0,camX,camY;
+
+    const st=statBar([{l:'Land',k:'a',v:'0%'},{l:'Rank',k:'r',v:'—'},{l:'Alive',k:'n',v:0},{l:'Best',k:'b',v:(bestOf('hex')||0)+'%'}]);
+    root.appendChild(st.node);
+    const c=mkCanvas(root,.82,400);
+    root.appendChild(hint('Drag to steer · leave your land to draw · return to claim it'));
+
+    const mini=document.createElement('canvas');
+    mini.width=COLS*2;mini.height=ROWS*2;
+    const mctx=mini.getContext('2d');
+
+    const idx=(cc,rr)=>rr*COLS+cc;
+    const inB=(cc,rr)=>cc>=0&&rr>=0&&cc<COLS&&rr<ROWS;
+    const hexPos=(cc,rr,S)=>[S*SQ3*(cc+.5*(rr&1)),S*1.5*rr];
+    function dist(c1,r1,c2,r2){
+      const q1=c1-((r1-(r1&1))>>1), q2=c2-((r2-(r2&1))>>1);
+      const x1=q1,z1=r1,y1=-x1-z1, x2=q2,z2=r2,y2=-x2-z2;
+      return (Math.abs(x1-x2)+Math.abs(y1-y2)+Math.abs(z1-z2))/2;
+    }
+
+    function blob(e,cc,rr,rad){
+      for(let r=Math.max(0,rr-rad);r<=Math.min(ROWS-1,rr+rad);r++)
+        for(let q=Math.max(0,cc-rad-1);q<=Math.min(COLS-1,cc+rad+1);q++)
+          if(dist(q,r,cc,rr)<=rad)owner[idx(q,r)]=e.id;
+      e.col=cc;e.row=rr;e.prevCol=cc;e.prevRow=rr;e.home=[cc,rr];
+    }
+    function freeSpot(minGap){
+      for(let t=0;t<400;t++){
+        const cc=6+ri(COLS-12),rr=6+ri(ROWS-12);
+        let ok=true;
+        for(const o of ents){if(o.alive&&dist(cc,rr,o.col,o.row)<minGap){ok=false;break;}}
+        if(!ok)continue;
+        for(let r=rr-4;r<=rr+4&&ok;r++)for(let q=cc-4;q<=cc+4;q++)
+          if(inB(q,r)&&owner[idx(q,r)]>=0){ok=false;break;}
+        if(ok)return [cc,rr];
+      }
+      return [6+ri(COLS-12),6+ri(ROWS-12)];
+    }
+    function spawn(e){
+      const [cc,rr]=freeSpot(e.bot?15:12);
+      e.alive=true;e.dir=ri(6);e.wantDir=e.dir;e.acc=0;e.trailCells=[];
+      if(!e.bot)e.started=false;
+      blob(e,cc,rr,e.bot?2:3);e.mode='out';
+      miniDirty=true;
+    }
+
+    function reset(){
+      owner.fill(-1);trail.fill(-1);
+      ents=NAMES.map((nm,i)=>({
+        id:i,name:nm,color:COLORS[i],bot:i>0,area:0,
+        step:i?118+ri(26):104, maxTrail:i?14+ri(20):999,
+        alive:false,acc:0,trailCells:[],respawn:0
+      }));
+      me=ents[0];
+      ents.forEach(spawn);
+      over=false;won=false;peak=0;feed=[];last=0;miniDirty=true;
+      recount();
+      const [x,y]=hexPos(me.col,me.row,1);camX=x;camY=y;
+    }
+    function recount(){
+      for(const e of ents)e.area=0;
+      for(let i=0;i<N;i++){const o=owner[i];if(o>=0)ents[o].area++;}
+      const pct=Math.round(me.area/N*1000)/10;
+      if(pct>peak)peak=pct;
+      st.set('a',pct+'%');
+      const rank=1+ents.filter(e=>e.alive&&e.area>me.area).length;
+      st.set('r',me.alive?'#'+rank:'—');
+      st.set('n',ents.filter(e=>e.alive).length);
+    }
+    function say(t,col){feed.push({t,col,at:performance.now()});if(feed.length>4)feed.shift();}
+
+    /* everything not reachable from the map edge without crossing e's land becomes e's */
+    function capture(e){
+      for(const i of e.trailCells){owner[i]=e.id;trail[i]=-1;}
+      e.trailCells=[];
+      const seen=new Uint8Array(N),q=[];
+      const add=(cc,rr)=>{
+        if(!inB(cc,rr))return;
+        const i=idx(cc,rr);
+        if(seen[i]||owner[i]===e.id)return;
+        seen[i]=1;q.push(i);
+      };
+      for(let cc=0;cc<COLS;cc++){add(cc,0);add(cc,ROWS-1);}
+      for(let rr=0;rr<ROWS;rr++){add(0,rr);add(COLS-1,rr);}
+      while(q.length){
+        const i=q.pop(),rr=(i/COLS)|0,cc=i%COLS;
+        for(const [dc,dr] of NB[rr&1])add(cc+dc,rr+dr);
+      }
+      let sc=0,sr=0,n=0;
+      for(let i=0;i<N;i++){
+        if(!seen[i]&&owner[i]!==e.id)owner[i]=e.id;
+        if(owner[i]===e.id){sc+=i%COLS;sr+=(i/COLS)|0;n++;}
+      }
+      if(n)e.home=[Math.round(sc/n),Math.round(sr/n)];
+      miniDirty=true;recount();
+      if(e===me){
+        blip(760,.1);
+        if(me.area/N>=.4)finish(true);
+      }
+    }
+    function kill(e,by){
+      if(!e.alive)return;
+      e.alive=false;
+      for(const i of e.trailCells)if(trail[i]===e.id)trail[i]=-1;
+      e.trailCells=[];
+      for(let i=0;i<N;i++)if(owner[i]===e.id)owner[i]=-1;
+      e.respawn=performance.now()+2600;
+      miniDirty=true;recount();
+      if(e===me){blip(120,.35,'sawtooth');finish(false,by);}
+      else{
+        blip(560,.12);
+        say((by===me?'You eliminated ':by.name+' eliminated ')+e.name,by===me?me.color:by.color);
+        if(!ents.some(x=>x.bot&&x.alive))finish(true);
+      }
+    }
+    function finish(win,by){
+      if(over)return;
+      over=true;won=win;
+      const nb=best('hex',Math.round(peak));
+      st.set('b',(bestOf('hex')||0)+'%');
+      overlay(win?'Map claimed! 🎉':'You were cut off',
+        (win?'You held ':'Peak territory ')+peak+'%'+(by?' — '+by.name+' crossed your trail.':'')+(nb?' New best!':''),
+        [{t:'Play again',p:1,f:()=>startLive()},{t:'Menu',f:home}]);
+    }
+
+    function move(e){
+      /* a 180° turn would walk straight back onto our own trail */
+      if(e.wantDir!==(e.dir+3)%6)e.dir=e.wantDir;
+      let d=e.dir,nc,nr;
+      for(const cand of [d,(d+1)%6,(d+5)%6,(d+2)%6,(d+4)%6]){
+        const [dc,dr]=NB[e.row&1][cand];
+        if(inB(e.col+dc,e.row+dr)){d=cand;nc=e.col+dc;nr=e.row+dr;break;}
+      }
+      if(nc===undefined)return;
+      e.dir=d;
+      const i=idx(nc,nr);
+      if(trail[i]>=0){
+        const victim=ents[trail[i]];
+        kill(victim,e);
+        if(victim===e)return;
+      }
+      e.prevCol=e.col;e.prevRow=e.row;e.col=nc;e.row=nr;
+      if(owner[i]===e.id){
+        if(e.trailCells.length)capture(e);
+      }else{
+        trail[i]=e.id;e.trailCells.push(i);
+      }
+    }
+    function think(e){
+      const homeNow=owner[idx(e.col,e.row)]===e.id;
+      if(!homeNow&&e.trailCells.length>=e.maxTrail)e.mode='home';
+      if(homeNow&&e.mode==='home')e.mode='out';
+      let best=-1,bs=-1e9;
+      for(let d=0;d<6;d++){
+        if(d===(e.dir+3)%6)continue;
+        const [dc,dr]=NB[e.row&1][d],nc=e.col+dc,nr=e.row+dr;
+        if(!inB(nc,nr))continue;
+        const i=idx(nc,nr);
+        if(trail[i]===e.id)continue;
+        let s=d===e.dir?3:0;
+        if(trail[i]>=0)s+=22;                       // cross someone's trail = a kill
+        const edge=Math.min(nc,nr,COLS-1-nc,ROWS-1-nr);
+        if(edge<2)s-=14;
+        if(e.mode==='home'){
+          s+=(dist(e.col,e.row,e.home[0],e.home[1])-dist(nc,nr,e.home[0],e.home[1]))*7;
+          if(owner[i]===e.id)s+=30;
+        }else{
+          s+=owner[i]===e.id?-7:5;
+          s+=Math.random()*4;
+        }
+        if(s>bs){bs=s;best=d;}
+      }
+      e.wantDir=best>=0?best:e.dir;
+    }
+
+    function tick(ts,dt){
+      for(const e of ents){
+        if(!e.alive){
+          if(e.bot&&ts>=e.respawn)spawn(e);
+          continue;
+        }
+        if(e.bot)think(e);
+        else if(!e.started)continue;
+        e.acc+=dt;
+        while(e.acc>=e.step){e.acc-=e.step;if(e.alive)move(e);else break;}
+      }
+    }
+
+    function drawMini(){
+      mctx.fillStyle='#0a1024';mctx.fillRect(0,0,mini.width,mini.height);
+      for(let i=0;i<N;i++){
+        const o=owner[i];if(o<0)continue;
+        mctx.fillStyle=ents[o].color;
+        mctx.fillRect((i%COLS)*2,((i/COLS)|0)*2,2,2);
+      }
+      miniDirty=false;
+    }
+    /* corner offsets are the same for every hex, so compute them once per size */
+    let cornS=0,CORN=[];
+    function corners(s){
+      if(s===cornS)return CORN;
+      cornS=s;CORN=[];
+      for(let i=0;i<6;i++){
+        const a=Math.PI/180*(60*i-30);
+        CORN.push([s*Math.cos(a),s*Math.sin(a)]);
+      }
+      return CORN;
+    }
+    /* add one hex as a subpath — many hexes share a single fill/stroke call */
+    function addHex(ctx,x,y,k){
+      ctx.moveTo(x+k[0][0],y+k[0][1]);
+      for(let i=1;i<6;i++)ctx.lineTo(x+k[i][0],y+k[i][1]);
+      ctx.closePath();
+    }
+    function entPos(e,S){
+      const f=clamp(e.acc/e.step,0,1);
+      const [x0,y0]=hexPos(e.prevCol,e.prevRow,S),[x1,y1]=hexPos(e.col,e.row,S);
+      return [x0+(x1-x0)*f,y0+(y1-y0)*f];
+    }
+    function draw(ts){
+      const {ctx,W,H}=c,S=Math.max(11,W/15/SQ3);
+      ctx.fillStyle='#0a1024';ctx.fillRect(0,0,W,H);
+      if(me.alive){const [x,y]=entPos(me,S);camX=x;camY=y;}
+      const ox=W/2-camX,oy=H/2-camY;
+      const rSpan=Math.ceil(H/(S*1.5)/2)+2,cSpan=Math.ceil(W/(S*SQ3)/2)+1;
+      const r0=clamp(me.row-rSpan,0,ROWS-1),r1=clamp(me.row+rSpan,0,ROWS-1);
+      const c0=clamp(me.col-cSpan,0,COLS-1),c1=clamp(me.col+cSpan,0,COLS-1);
+      ctx.lineWidth=1;
+      /* hexes are drawn slightly undersized so the background shows through as
+         grid lines — stroking each outline is far too slow to do per frame */
+      const K=corners(S*.88);
+      /* bucket the visible hexes by what they are, then draw one path per bucket:
+         ~16 fill/stroke calls per frame instead of two per hex */
+      const nOwn=ents.length;
+      const bOwn=[],bTrail=[];
+      for(let i=0;i<nOwn;i++){bOwn.push([]);bTrail.push([]);}
+      const bFree=[];
+      for(let rr=r0;rr<=r1;rr++)for(let cc=c0;cc<=c1;cc++){
+        const i=idx(cc,rr),o=owner[i],t=trail[i];
+        const x=S*SQ3*(cc+.5*(rr&1))+ox,y=S*1.5*rr+oy;
+        if(t>=0)bTrail[t].push(x,y);
+        else if(o>=0)bOwn[o].push(x,y);
+        else bFree.push(x,y);
+      }
+      const fill=(pts,style,alpha)=>{
+        if(!pts.length)return;
+        ctx.beginPath();
+        for(let i=0;i<pts.length;i+=2)addHex(ctx,pts[i],pts[i+1],K);
+        ctx.fillStyle=style;
+        if(alpha!==undefined)ctx.globalAlpha=alpha;
+        ctx.fill();
+        ctx.globalAlpha=1;
+      };
+      fill(bFree,'#141d3c');
+      for(let i=0;i<nOwn;i++)fill(bOwn[i],ents[i].color,i===me.id?.62:.42);
+      const pulse=.6+.3*Math.sin(ts/110);
+      for(let i=0;i<nOwn;i++)fill(bTrail[i],ents[i].color,i===me.id?pulse:.55);
+      /* map edge */
+      ctx.strokeStyle='rgba(255,110,110,.5)';ctx.lineWidth=3;
+      const [ex0,ey0]=hexPos(0,0,S),[ex1,ey1]=hexPos(COLS-1,ROWS-1,S);
+      ctx.strokeRect(ex0+ox-S,ey0+oy-S,ex1-ex0+2*S,ey1-ey0+2*S);
+      ctx.lineWidth=1;
+      /* heads */
+      for(const e of ents){
+        if(!e.alive)continue;
+        const [x,y]=entPos(e,S),sx=x+ox,sy=y+oy;
+        if(sx<-S||sy<-S||sx>W+S||sy>H+S)continue;
+        ctx.beginPath();ctx.arc(sx,sy,S*.62,0,7);
+        ctx.fillStyle=e.color;ctx.fill();
+        ctx.lineWidth=e===me?3:2;
+        ctx.strokeStyle=e===me?'#fff':'rgba(0,0,0,.45)';ctx.stroke();
+        ctx.lineWidth=1;
+      }
+      /* leaderboard */
+      const board=ents.filter(e=>e.alive).sort((a,b)=>b.area-a.area).slice(0,5);
+      ctx.font='600 11px -apple-system,system-ui,sans-serif';ctx.textAlign='left';
+      board.forEach((e,i)=>{
+        const y=12+i*15;
+        ctx.fillStyle='rgba(10,16,36,.72)';ctx.fillRect(6,y-9,104,14);
+        ctx.fillStyle=e.color;ctx.fillRect(9,y-6,8,8);
+        ctx.fillStyle=e===me?'#fff':'#c3cce6';
+        ctx.fillText(e.name+'  '+(Math.round(e.area/N*1000)/10)+'%',22,y+2);
+      });
+      /* kill feed — sits clear of the minimap in the bottom-right */
+      const miniH=W*.24*(ROWS/COLS);
+      ctx.textAlign='left';
+      feed=feed.filter(f=>ts-f.at<2400);
+      feed.forEach((f,i)=>{
+        ctx.globalAlpha=clamp((2400-(ts-f.at))/600,0,1);
+        ctx.fillStyle=f.col;ctx.fillText(f.t,8,H-miniH-16-i*15);
+        ctx.globalAlpha=1;
+      });
+      if(me.alive&&!me.started&&!over){
+        ctx.textAlign='center';
+        ctx.font='700 15px -apple-system,system-ui,sans-serif';
+        ctx.fillStyle='rgba(10,16,36,.85)';ctx.fillRect(W/2-104,H/2+30,208,30);
+        ctx.fillStyle='#e8ecf5';ctx.fillText('drag to start',W/2,H/2+50);
+      }
+      /* minimap */
+      if(miniDirty&&ts-miniAt>200){miniAt=ts;drawMini();}
+      const mw=W*.24,mh=miniH;
+      ctx.globalAlpha=.82;
+      ctx.fillStyle='rgba(10,16,36,.9)';ctx.fillRect(W-mw-6,H-mh-6,mw,mh);
+      ctx.drawImage(mini,W-mw-6,H-mh-6,mw,mh);
+      ctx.globalAlpha=1;
+      ctx.strokeStyle='rgba(255,255,255,.25)';ctx.strokeRect(W-mw-6,H-mh-6,mw,mh);
+      if(me.alive){
+        ctx.fillStyle='#fff';
+        ctx.fillRect(W-mw-6+me.col/COLS*mw-1.5,H-mh-6+me.row/ROWS*mh-1.5,3,3);
+      }
+    }
+    function loop(ts){
+      raf=requestAnimationFrame(loop);
+      if(!last)last=ts;
+      const dt=Math.min(ts-last,60);last=ts;
+      if(!over)tick(ts,dt);
+      draw(ts);
+    }
+
+    /* steering: aim from the centre of the screen (where you always are) */
+    function aim(clientX,clientY){
+      if(over||!me.alive)return;
+      me.started=true;
+      const r=c.cv.getBoundingClientRect();
+      const dx=clientX-(r.left+r.width/2),dy=clientY-(r.top+r.height/2);
+      if(Math.hypot(dx,dy)<10)return;
+      const a=Math.atan2(dy,dx);
+      let best=0,bd=9;
+      for(let d=0;d<6;d++){
+        const diff=Math.abs(((a-DIRA[d]+Math.PI*3)%(Math.PI*2))-Math.PI);
+        if(diff<bd){bd=diff;best=d;}
+      }
+      me.wantDir=best;
+    }
+    const tHandler=e=>{e.preventDefault();const t=e.touches[0];if(t)aim(t.clientX,t.clientY);};
+    c.cv.addEventListener('touchstart',tHandler,{passive:false});
+    c.cv.addEventListener('touchmove',tHandler,{passive:false});
+    c.cv.addEventListener('mousemove',e=>aim(e.clientX,e.clientY));
+    const setD=d=>()=>{if(me.alive&&!over){me.started=true;me.wantDir=d;}};
+    const offK=keys({d:setD(0),e:setD(1),w:setD(2),a:setD(3),z:setD(4),x:setD(5),
+      ArrowRight:setD(0),ArrowUp:setD(1),ArrowLeft:setD(3),ArrowDown:setD(4)});
+    const offR=onResize(()=>{c.fit();});
+    reset();
+    requestAnimationFrame(()=>{c.fit();raf=requestAnimationFrame(loop);});
+    return {stop(){cancelAnimationFrame(raf);offK();offR();}};
+  }
+});
 
 /* ==================================================================
    1. 2048
