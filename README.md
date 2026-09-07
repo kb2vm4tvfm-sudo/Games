@@ -1,6 +1,6 @@
 # Airplane Mode — Offline Games
 
-Eleven games in a single HTML file. No wifi, no cell signal, no ads, no tracking,
+Twelve games in a single HTML file. No wifi, no cell signal, no ads, no tracking,
 no external requests of any kind. Everything — code, styles, the word list, the
 sound effects — lives inside `index.html`.
 
@@ -44,6 +44,7 @@ npx http-server . -p 8080     # then open http://localhost:8080
 | 📓 | **Sudoku** | Generated on-device with a guaranteed unique solution. Notes, hints, timer. |
 | 🃏 | **Solitaire** | Klondike. Tap a card, tap where it goes. Undo, draw 1 or 3, auto-finish. |
 | 🔤 | **Word Five** | Guess the five-letter word in six tries. 792-word offline dictionary, unlimited rounds. |
+| 📰 | **Crossword** | Grids generated on-device from an embedded bank of 345 word/clue pairs, so puzzles never run out. 7×7, 9×9 or 11×11, with check, reveal and a full clue list. |
 | 🧨 | **Breakout** | Drag the paddle. Levels get faster and the paddle gets narrower. |
 | 🧠 | **Memory** | Match every pair. 4×4, 4×5 or 4×6. |
 | 🔴 | **Connect 4** | Alpha-beta opponent at three strengths. Hard searches six plies. |

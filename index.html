@@ -152,11 +152,11 @@ canvas{display:block;touch-action:none;border-radius:14px;background:#0e1428}
 #gword .wt.g{background:#3fa96b;border-color:#3fa96b}
 #gword .wt.y{background:#c9a227;border-color:#c9a227}
 #gword .wt.b{background:#2a3357;border-color:#2a3357;color:#7c88ab}
-#gword .kb{display:flex;flex-direction:column;gap:6px;width:100%}
-#gword .kr{display:flex;gap:5px;justify-content:center}
-#gword .k{flex:1;background:#39436e;border-radius:7px;padding:13px 0;font-size:14px;font-weight:700;
+#gword .kb,#gcross .kb{display:flex;flex-direction:column;gap:6px;width:100%}
+#gword .kr,#gcross .kr{display:flex;gap:5px;justify-content:center}
+#gword .k,#gcross .k{flex:1;background:#39436e;border-radius:7px;padding:13px 0;font-size:14px;font-weight:700;
   text-transform:uppercase;min-width:0;transition:transform .08s}
-#gword .k:active{transform:scale(.92)}
+#gword .k:active,#gcross .k:active{transform:scale(.92)}
 #gword .k.wide{flex:1.6;font-size:11px}
 #gword .k.g{background:#3fa96b}#gword .k.y{background:#c9a227}#gword .k.b{background:#1e2645;color:#68738f}
 #gword .toast{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:#e8ecf5;color:#131a33;
@@ -201,6 +201,35 @@ canvas{display:block;touch-action:none;border-radius:14px;background:#0e1428}
 #gc4 .drop{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;width:100%;max-width:400px;padding:0 7px}
 #gc4 .drop button{font-size:15px;color:#8fa0d8;padding:4px 0}
 
+/* ---------- crossword ---------- */
+#gcross .xgrid{display:grid;width:100%;max-width:380px;aspect-ratio:1;gap:1px;
+  background:#2a3357;padding:1px;border-radius:7px}
+#gcross .xc{background:#e9edf7;color:#141c33;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:var(--fs,17px);position:relative;aspect-ratio:1;min-width:0}
+#gcross .xc.blk{background:#0b1020}
+#gcross .xc.word{background:#b7cbf3}
+#gcross .xc.sel{background:#ffd166}
+#gcross .xc.bad{color:#c81e33}
+#gcross .xn{position:absolute;top:0;left:2px;font-size:var(--ns,8px);font-weight:700;
+  color:#5d6a90;line-height:1.15}
+#gcross .cbar{display:flex;align-items:center;gap:8px;width:100%;max-width:400px;
+  background:#161d38;border:1px solid #232c4f;border-radius:12px;padding:8px 10px;min-height:50px}
+#gcross .cbar .txt{flex:1;font-size:13px;line-height:1.35}
+#gcross .cbar .nm{color:#6fa8ff;font-weight:700}
+#gcross .cbar button{width:32px;height:32px;border-radius:9px;background:#222c52;
+  font-size:16px;flex:0 0 auto}
+#gcross .k.wide{font-size:15px}
+.clist{background:#141b33;border:1px solid #2c375f;border-radius:18px;padding:16px;
+  width:100%;max-width:360px;max-height:78vh;overflow-y:auto}
+.clist h4{margin:12px 0 6px;font-size:11px;letter-spacing:1.5px;
+  text-transform:uppercase;color:#7a86ab}
+.clist h4:first-child{margin-top:0}
+.crow{display:flex;gap:9px;padding:7px 6px;border-radius:8px;font-size:13px;line-height:1.35}
+.crow b{color:#6fa8ff;min-width:19px}
+.crow.ok{opacity:.42;text-decoration:line-through}
+.crow:active{background:#222c52}
+.clist .btn{margin-top:14px;width:100%}
+
 /* ---------- tetris / arcade controls ---------- */
 .pad4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:400px}
 .pad4 .btn{padding:15px 0;font-size:17px;text-align:center}
@@ -214,7 +243,7 @@ canvas{display:block;touch-action:none;border-radius:14px;background:#0e1428}
     <div class="home-head">
       <div class="kicker">Airplane mode</div>
       <h2>Offline Games</h2>
-      <p>No wifi. No signal. No ads. Eleven games that live entirely in this one file.</p>
+      <p>No wifi. No signal. No ads. Twelve games that live entirely in this one file.</p>
     </div>
     <div class="grid" id="cards"></div>
     <div class="foot">Everything runs on-device · scores saved locally</div>
@@ -1807,6 +1836,641 @@ reg({
     ));
     reset();
     return {stop(){offK();}};
+  }
+});
+
+/* Word/clue bank for the crossword generator. One entry per line: WORD|Clue */
+const XDICT=`ACE|Card with a single pip
+AGE|Years behind you
+AIM|Point a camera
+AIR|What you breathe
+ANT|Picnic invader
+APE|Gorilla or chimp
+ARC|Curved path
+ARM|Shoulder to hand
+ART|Museum contents
+ASH|Fire residue
+AXE|Wood chopper
+BAT|Cave flier
+BAY|Coastal inlet
+BED|Place to sleep
+BEE|Hive dweller
+BIN|Rubbish container
+BOW|Archer weapon
+BOX|Cardboard container
+BUD|Flower before it opens
+BUS|Public transport
+CAB|Taxi
+CAP|Bottle top
+CAR|Road vehicle
+CAT|Feline pet
+COW|Milk producer
+CUP|Tea vessel
+DAM|River barrier
+DAY|Twenty-four hours
+DEN|Animal lair
+DEW|Morning moisture
+DIG|Excavate
+DOG|Loyal pet
+DOT|Small point
+DRY|Not wet
+DUE|Expected to arrive
+EAR|Hearing organ
+EGG|Breakfast oval
+ELM|Shade tree
+END|Final part
+ERA|Historical period
+EYE|Organ of sight
+FAN|Cooling device
+FAR|Distant
+FEW|Not many
+FIG|Sweet fruit
+FIN|Shark feature
+FIT|In good shape
+FLY|Buzzing insect
+FOG|Thick mist
+FOX|Cunning animal
+FUN|Enjoyment
+GAP|Opening
+GAS|Petrol
+GEM|Precious stone
+GUM|Chewing treat
+GYM|Workout place
+HAT|Head cover
+HEN|Female chicken
+HIP|Body joint
+HUB|Wheel centre
+ICE|Frozen water
+INK|Pen fluid
+IVY|Climbing plant
+JAM|Toast spread
+JAR|Glass container
+JAW|Mouth bone
+JET|Fast aircraft
+JOB|Employment
+JOY|Great delight
+KEY|Lock opener
+KID|Young goat
+LAB|Research room
+LAP|Circuit of a track
+LAW|Legal rule
+LEG|Lower limb
+LID|Container top
+LIP|Mouth edge
+LOG|Fallen tree section
+LOW|Not high
+MAP|Navigation aid
+MAT|Door covering
+MUD|Wet earth
+NAP|Short sleep
+NET|Fishing mesh
+NEW|Recently made
+NUT|Bolt partner
+OAK|Sturdy tree
+OAR|Rowing tool
+OIL|Engine lubricant
+OLD|Aged
+ORE|Mined rock
+OWL|Night bird
+PAN|Frying vessel
+PAW|Animal foot
+PEA|Small green vegetable
+PEN|Writing tool
+PIE|Baked dish
+PIN|Small fastener
+PIT|Deep hole
+POT|Cooking vessel
+RAT|Rodent
+RAW|Uncooked
+RAY|Beam of light
+RED|Fire engine colour
+RIB|Chest bone
+RIM|Wheel edge
+ROW|Line of seats
+RUG|Floor covering
+RUN|Move quickly
+SEA|Large body of salt water
+SKY|Where clouds are
+SUN|Our star
+TAG|Price label
+TAN|Sun colour
+TAP|Water outlet
+TEA|Hot drink
+TIN|Metal can
+TIP|Gratuity
+TOE|Foot digit
+TOP|Highest point
+TOY|Child plaything
+TWO|Pair
+VAN|Delivery vehicle
+WAR|Armed conflict
+WAX|Candle material
+WEB|Spider trap
+WET|Soaked
+WIN|Take first place
+ZIP|Jacket fastener
+ACID|Corrosive liquid
+BEAR|Woodland giant
+BELL|Church ringer
+BIRD|Feathered flier
+BOAT|Water craft
+BOLT|Lightning flash
+BONE|Skeleton part
+BOOK|Bound pages
+CAKE|Birthday dessert
+CALM|Peaceful
+CARD|Playing rectangle
+CAVE|Underground hollow
+CITY|Large town
+CLAY|Potter material
+COAL|Black fuel
+COIN|Pocket money
+COLD|Winter feeling
+COOK|Prepare a meal
+CORN|Maize
+DARK|Without light
+DESK|Office table
+DISH|Serving plate
+DOOR|Room entrance
+DOVE|Peace bird
+DRUM|Percussion instrument
+DUCK|Pond bird
+DUST|Fine particles
+EAST|Sunrise direction
+FACE|Front of the head
+FARM|Crop land
+FILM|Cinema feature
+FIRE|Flames
+FISH|Gilled swimmer
+FLAG|National banner
+FOOT|Twelve inches
+FORK|Dining utensil
+FROG|Pond hopper
+GATE|Fence opening
+GIFT|Present
+GOAT|Horned climber
+GOLD|Olympic first prize
+HAND|Five fingers
+HERO|Brave figure
+HILL|Small rise
+HOME|Where you live
+IRON|Clothes presser
+JUMP|Leap
+KEEP|Retain
+KING|Chess piece
+KITE|Windy day flier
+LAKE|Inland water
+LAMP|Light source
+LAND|Not sea
+LEAF|Tree foliage
+LION|Savannah cat
+LOCK|Key partner
+MASK|Face cover
+MILK|Dairy drink
+MIND|Seat of thought
+MOON|Night light
+NAIL|Hammer target
+NEST|Bird home
+NOSE|Smelling organ
+NOTE|Brief message
+OPEN|Not shut
+OVEN|Baking box
+PAGE|Book leaf
+PARK|Green space
+PATH|Walking route
+PLAN|Scheme
+PLAY|Theatre piece
+POND|Small lake
+RAIN|Falling water
+RICE|Grain staple
+RING|Finger jewellery
+ROAD|Driving surface
+ROCK|Large stone
+ROOF|House top
+ROOM|Interior space
+ROOT|Underground plant part
+ROSE|Thorny flower
+SAIL|Boat canvas
+SALT|Seasoning
+SAND|Beach material
+SEED|Plant start
+SHIP|Ocean vessel
+SHOE|Foot wear
+SILK|Smooth fabric
+SNOW|Winter fall
+SOAP|Washing bar
+SONG|Sung piece
+STAR|Night sparkle
+STEP|Stair unit
+SWIM|Move in water
+TAIL|Rear appendage
+TIME|Clock measure
+TREE|Tall plant
+WALL|Room side
+WAVE|Ocean swell
+WIND|Moving air
+WING|Flight limb
+WOLF|Pack hunter
+WOOD|Forest material
+WORD|Unit of language
+YARD|Three feet
+ZERO|Nothing at all
+APPLE|Orchard fruit
+BEACH|Sandy shore
+BREAD|Bakery staple
+BRICK|Building block
+BRUSH|Painter tool
+CHAIR|Seat with a back
+CHESS|Board game of kings
+CLOCK|Time teller
+CLOUD|Sky puff
+CRANE|Lifting machine
+DREAM|Sleeping vision
+EAGLE|Soaring raptor
+EARTH|Third planet
+FIELD|Open farmland
+FLOOR|You stand on it
+FRUIT|Apple or pear
+GLASS|Window material
+GRASS|Lawn cover
+HEART|Blood pump
+HORSE|Riding animal
+HOUSE|Dwelling
+JUICE|Squeezed drink
+KNIFE|Cutting tool
+LEMON|Sour citrus
+LIGHT|Not heavy
+MONEY|Currency
+MOUSE|Small rodent
+MUSIC|Melody and rhythm
+NIGHT|After dusk
+OCEAN|Vast sea
+PAPER|Writing sheet
+PIANO|Keyboard instrument
+PLANE|Flying machine
+PLANT|Garden growth
+RADIO|Broadcast receiver
+RIVER|Flowing water
+ROBOT|Mechanical worker
+SHEEP|Wool provider
+SNAKE|Legless reptile
+SPACE|Final frontier
+STONE|Hard rock
+STORM|Violent weather
+SUGAR|Sweetener
+TABLE|Dining furniture
+TIGER|Striped cat
+TOWER|Tall structure
+TRAIN|Rail transport
+WATER|Clear drink
+WHALE|Ocean giant
+WHEEL|Round roller
+WOMAN|Adult female
+ANIMAL|Living creature
+BASKET|Woven container
+BOTTLE|Drink container
+BRIDGE|River crossing
+CAMERA|Photo taker
+CANDLE|Wax light
+CASTLE|Fortified home
+CHEESE|Dairy product
+CIRCLE|Round shape
+COFFEE|Morning brew
+DESERT|Arid region
+DINNER|Evening meal
+DOCTOR|Medical expert
+ENGINE|Motor
+FLOWER|Blooming plant
+FOREST|Dense woodland
+GARDEN|Planted plot
+GUITAR|Six-stringed instrument
+ISLAND|Land in water
+JUNGLE|Tropical forest
+LADDER|Climbing frame
+MARKET|Trading place
+MIRROR|Reflecting glass
+NEEDLE|Sewing point
+ORANGE|Citrus fruit
+PENCIL|Graphite writer
+PILLOW|Head rest
+PLANET|Orbiting world
+POCKET|Trouser pouch
+PURPLE|Violet shade
+RABBIT|Long-eared hopper
+ROCKET|Space launcher
+SCHOOL|Learning place
+SILVER|Second place metal
+SPRING|Season after winter
+SUMMER|Warmest season
+SUNSET|Evening sky show
+TUNNEL|Underground passage
+VALLEY|Land between hills
+WINDOW|Glass opening
+WINTER|Coldest season
+YELLOW|Banana colour
+BICYCLE|Two-wheeled ride
+BLANKET|Bed cover
+CAPTAIN|Ship commander
+COMPASS|Direction finder
+DIAMOND|Hard gem
+JOURNEY|Long trip
+LIBRARY|Book collection
+MACHINE|Mechanical device
+MORNING|Before noon
+PICTURE|Framed image
+RAINBOW|Arc of colour
+STATION|Train stop
+THUNDER|Storm rumble
+VILLAGE|Small settlement
+WEATHER|Rain or shine
+ELEPHANT|Trunked giant
+MOUNTAIN|High peak`.split('\n').map(l=>{const p=l.split('|');return {w:p[0],c:p[1]};});
+
+/* ==================================================================
+   12. Crossword — puzzles generated on-device from an embedded clue bank
+   ================================================================== */
+reg({
+  id:'cross',name:'Crossword',emoji:'📰',color:'#6fd3c4',
+  desc:'Freshly generated grids with real clues.',
+  bestLabel(){const b=bestOf('cross.9');return b?'9x9 in '+fmt(b):'';},
+  start(root){
+    root.style.justifyContent='flex-start';
+    root.style.overflowY='auto';
+    root.style.gap='10px';
+    let size=LS.get('cross.size',9);
+    let P,cur,bad,sel,dir='A',secs,timer,done,helped,entryAt;
+
+    const st=statBar([{l:'Filled',k:'f',v:'0'},{l:'Time',k:'t',v:'0:00'},{l:'Best',k:'b',v:bestOf('cross.'+size)?fmt(bestOf('cross.'+size)):'—'}]);
+    root.appendChild(st.node);
+    const grid=el('div','xgrid');root.appendChild(grid);
+
+    const cbar=el('div','cbar');
+    const prev=el('button',null,'‹'), next=el('button',null,'›');
+    const ctxt=el('div','txt');
+    cbar.appendChild(prev);cbar.appendChild(ctxt);cbar.appendChild(next);
+    root.appendChild(cbar);
+
+    const kb=el('div','kb');root.appendChild(kb);
+    const row=el('div','btnrow');root.appendChild(row);
+
+    /* ---------- generator ---------- */
+    const inb=(r,c,n)=>r>=0&&c>=0&&r<n&&c<n;
+    function canPlace(g,n,w,r,c,d){
+      const dr=d==='D'?1:0, dc=d==='A'?1:0;
+      const er=r+dr*(w.length-1), ec=c+dc*(w.length-1);
+      if(!inb(r,c,n)||!inb(er,ec,n))return -1;
+      if(inb(r-dr,c-dc,n)&&g[(r-dr)*n+(c-dc)])return -1;
+      if(inb(er+dr,ec+dc,n)&&g[(er+dr)*n+(ec+dc)])return -1;
+      let cross=0;
+      for(let k=0;k<w.length;k++){
+        const rr=r+dr*k, cc=c+dc*k, i=rr*n+cc, at=g[i];
+        if(at){ if(at!==w[k])return -1; cross++; }
+        else{
+          const pr=dc, pc=dr;
+          if(inb(rr-pr,cc-pc,n)&&g[(rr-pr)*n+(cc-pc)])return -1;
+          if(inb(rr+pr,cc+pc,n)&&g[(rr+pr)*n+(cc+pc)])return -1;
+        }
+      }
+      return cross;
+    }
+    function put(g,n,w,r,c,d){
+      const dr=d==='D'?1:0, dc=d==='A'?1:0;
+      for(let k=0;k<w.length;k++)g[(r+dr*k)*n+(c+dc*k)]=w[k];
+    }
+    function findSpot(g,n,w,placed){
+      let best=null,bs=0;
+      for(const p of placed){
+        const nd=p.dir==='A'?'D':'A';
+        for(let j=0;j<p.w.length;j++){
+          const pr=p.dir==='A'?p.r:p.r+j, pc=p.dir==='A'?p.c+j:p.c;
+          for(let i=0;i<w.length;i++){
+            if(w[i]!==p.w[j])continue;
+            const r=nd==='D'?pr-i:pr, c=nd==='A'?pc-i:pc;
+            const x=canPlace(g,n,w,r,c,nd);
+            if(x>bs){bs=x;best={r,c,dir:nd};}
+          }
+        }
+      }
+      return best;
+    }
+    function extract(g,n){
+      const clueOf=new Map(XDICT.map(e=>[e.w,e.c]));
+      const entries=[],num=new Array(n*n).fill(0);
+      let k=0;
+      for(let r=0;r<n;r++)for(let c=0;c<n;c++){
+        const i=r*n+c;
+        if(!g[i])continue;
+        const aS=(c===0||!g[i-1])&&c+1<n&&g[i+1];
+        const dS=(r===0||!g[i-n])&&r+1<n&&g[i+n];
+        if(aS||dS)num[i]=++k;
+        if(aS){let w='',cells=[];for(let j=c;j<n&&g[r*n+j];j++){w+=g[r*n+j];cells.push(r*n+j);}
+          entries.push({num:num[i],dir:'A',word:w,cells,clue:clueOf.get(w)});}
+        if(dS){let w='',cells=[];for(let j=r;j<n&&g[j*n+c];j++){w+=g[j*n+c];cells.push(j*n+c);}
+          entries.push({num:num[i],dir:'D',word:w,cells,clue:clueOf.get(w)});}
+      }
+      if(entries.some(e=>!e.clue))return null;
+      const inWord=new Set();entries.forEach(e=>e.cells.forEach(i=>inWord.add(i)));
+      for(let i=0;i<n*n;i++)if(g[i]&&!inWord.has(i))return null;
+      return {grid:g,entries,num,size:n};
+    }
+    function make(n){
+      const target=n<=7?8:n<=9?13:18, floor=Math.max(6,target-5);
+      for(let a=0;a<80;a++){
+        const g=new Array(n*n).fill(0);
+        const pool=shuffle(XDICT.filter(e=>e.w.length<=n));
+        const seeds=pool.filter(e=>e.w.length>=Math.min(n-1,6));
+        if(!seeds.length)return null;
+        const s=seeds[0];
+        const r0=ri(n), c0=ri(Math.max(1,n-s.w.length+1));
+        if(canPlace(g,n,s.w,r0,c0,'A')<0)continue;
+        put(g,n,s.w,r0,c0,'A');
+        const placed=[{w:s.w,r:r0,c:c0,dir:'A'}], used=new Set([s.w]);
+        for(let pass=0;pass<3&&placed.length<target;pass++)
+          for(const cand of pool){
+            if(placed.length>=target)break;
+            if(used.has(cand.w))continue;
+            const sp=findSpot(g,n,cand.w,placed);
+            if(sp){put(g,n,cand.w,sp.r,sp.c,sp.dir);placed.push({w:cand.w,r:sp.r,c:sp.c,dir:sp.dir});used.add(cand.w);}
+          }
+        if(placed.length<floor)continue;
+        const out=extract(g,n);
+        if(out)return out;
+      }
+      return null;
+    }
+
+    /* ---------- build ---------- */
+    const cells=[];
+    function build(){
+      P=make(size);
+      if(!P){overlay('Could not build a grid','Try a different size.',[{t:'Retry',p:1,f:()=>startLive()},{t:'Menu',f:home}]);return;}
+      cur=new Array(size*size).fill('');
+      bad=new Array(size*size).fill(false);
+      done=false;helped=false;secs=0;dir='A';
+      entryAt={A:new Array(size*size),D:new Array(size*size)};
+      P.entries.forEach(e=>e.cells.forEach(i=>{entryAt[e.dir][i]=e;}));
+      grid.style.gridTemplateColumns='repeat('+size+',1fr)';
+      const fs=Math.round(340/size*0.52);
+      grid.style.setProperty('--fs',fs+'px');
+      grid.style.setProperty('--ns',Math.max(7,Math.round(fs*0.44))+'px');
+      grid.innerHTML='';cells.length=0;
+      for(let i=0;i<size*size;i++){
+        const n=el('div','xc');
+        if(!P.grid[i])n.classList.add('blk');
+        else{
+          if(P.num[i]){const b=el('span','xn',String(P.num[i]));n.appendChild(b);}
+          const t=el('span','xl','');n.appendChild(t);
+          n.onclick=()=>tap(i);
+        }
+        cells.push(n);grid.appendChild(n);
+      }
+      sel=P.entries[0].cells[0];dir=P.entries[0].dir;
+      st.set('b',bestOf('cross.'+size)?fmt(bestOf('cross.'+size)):'—');
+      paint();
+    }
+    const entryOf=()=>entryAt[dir][sel]||entryAt[dir==='A'?'D':'A'][sel];
+    function tap(i){
+      if(done)return;
+      if(i===sel){
+        const o=dir==='A'?'D':'A';
+        if(entryAt[o][i])dir=o;
+      }else{
+        sel=i;
+        if(!entryAt[dir][i])dir=dir==='A'?'D':'A';
+      }
+      paint();
+    }
+    function paint(){
+      const e=entryOf();
+      const inWord=new Set(e?e.cells:[]);
+      for(let i=0;i<size*size;i++){
+        const n=cells[i];
+        if(!P.grid[i])continue;
+        n.className='xc'+(i===sel?' sel':inWord.has(i)?' word':'')+(bad[i]?' bad':'');
+        const t=n.querySelector('.xl');
+        if(t)t.textContent=cur[i]||'';
+      }
+      ctxt.innerHTML='';
+      if(e){
+        const nm=el('span','nm',e.num+(e.dir==='A'?' Across':' Down')+'  ');
+        ctxt.appendChild(nm);
+        ctxt.appendChild(document.createTextNode(e.clue));
+      }
+      const filled=P.grid.reduce((a,v,i)=>a+(v&&cur[i]?1:0),0);
+      const total=P.grid.filter(Boolean).length;
+      st.set('f',filled+'/'+total);
+    }
+    function type(L){
+      if(done)return;
+      const e=entryOf();if(!e)return;
+      cur[sel]=L;bad[sel]=false;
+      const k=e.cells.indexOf(sel);
+      let nx=-1;
+      for(let j=k+1;j<e.cells.length;j++)if(!cur[e.cells[j]]){nx=e.cells[j];break;}
+      if(nx<0&&k+1<e.cells.length)nx=e.cells[k+1];
+      if(nx<0){
+        const idx=P.entries.indexOf(e);
+        for(let s=1;s<=P.entries.length;s++){
+          const n2=P.entries[(idx+s)%P.entries.length];
+          const gap=n2.cells.find(i=>!cur[i]);
+          if(gap!==undefined){nx=gap;dir=n2.dir;break;}
+        }
+      }
+      if(nx>=0)sel=nx;
+      blip(430,.03);paint();win();
+    }
+    function back(){
+      if(done)return;
+      const e=entryOf();if(!e)return;
+      if(cur[sel]){cur[sel]='';bad[sel]=false;}
+      else{
+        const k=e.cells.indexOf(sel);
+        if(k>0){sel=e.cells[k-1];cur[sel]='';bad[sel]=false;}
+      }
+      paint();
+    }
+    function check(){
+      let wrong=0;
+      for(let i=0;i<size*size;i++){
+        bad[i]=!!(P.grid[i]&&cur[i]&&cur[i]!==P.grid[i]);
+        if(bad[i])wrong++;
+      }
+      blip(wrong?200:700,.12);paint();
+    }
+    function reveal(){
+      const e=entryOf();if(!e||done)return;
+      helped=true;
+      e.cells.forEach(i=>{cur[i]=P.grid[i];bad[i]=false;});
+      blip(700,.09);paint();win();
+    }
+    function win(){
+      for(let i=0;i<size*size;i++)if(P.grid[i]&&cur[i]!==P.grid[i])return;
+      done=true;clearInterval(timer);blip(880,.25);
+      let nb=false;
+      if(!helped){nb=best('cross.'+size,secs,true);st.set('b',fmt(bestOf('cross.'+size)));}
+      overlay('Solved! 🎉',
+        fmt(secs)+' on the '+size+'x'+size+(helped?' (with a reveal)':nb?' — new best!':''),
+        [{t:'New puzzle',p:1,f:()=>startLive()},{t:'Menu',f:home}]);
+    }
+    function step(d){
+      const e=entryOf();if(!e)return;
+      const i=P.entries.indexOf(e);
+      const n2=P.entries[(i+d+P.entries.length)%P.entries.length];
+      dir=n2.dir;sel=n2.cells.find(x=>!cur[x])??n2.cells[0];
+      paint();
+    }
+    function clueList(){
+      const o=el('div','ovl');
+      const box=el('div','clist');
+      ['A','D'].forEach(d=>{
+        box.appendChild(el('h4',null,d==='A'?'Across':'Down'));
+        P.entries.filter(e=>e.dir===d).sort((a,b)=>a.num-b.num).forEach(e=>{
+          const r=el('div','crow');
+          r.appendChild(el('b',null,String(e.num)));
+          r.appendChild(el('span',null,e.clue));
+          const solved=e.cells.every(i=>cur[i]===P.grid[i]);
+          if(solved)r.classList.add('ok');
+          r.onclick=()=>{dir=e.dir;sel=e.cells.find(i=>!cur[i])??e.cells[0];o.remove();paint();};
+          box.appendChild(r);
+        });
+      });
+      const cl=el('button','btn primary','Close');cl.onclick=()=>o.remove();
+      box.appendChild(cl);
+      o.appendChild(box);o.onclick=ev=>{if(ev.target===o)o.remove();};
+      wrap.appendChild(o);
+    }
+
+    prev.onclick=()=>step(-1);
+    next.onclick=()=>step(1);
+    [['q','w','e','r','t','y','u','i','o','p'],
+     ['a','s','d','f','g','h','j','k','l'],
+     ['z','x','c','v','b','n','m','⌫']].forEach(kr=>{
+      const r=el('div','kr');
+      kr.forEach(k=>{
+        const b=el('button','k'+(k==='⌫'?' wide':''),k);
+        b.onclick=()=>k==='⌫'?back():type(k.toUpperCase());
+        r.appendChild(b);
+      });
+      kb.appendChild(r);
+    });
+    row.appendChild((()=>{const b=el('button','btn sm','✓ Check');b.onclick=check;return b;})());
+    row.appendChild((()=>{const b=el('button','btn sm','💡 Reveal');b.onclick=reveal;return b;})());
+    row.appendChild((()=>{const b=el('button','btn sm','☰ Clues');b.onclick=clueList;return b;})());
+    [[7,'7x7'],[9,'9x9'],[11,'11x11']].forEach(([n,lab])=>{
+      const b=el('button','btn sm',lab);
+      if(n===size)b.classList.add('primary');
+      b.onclick=()=>{size=n;LS.set('cross.size',n);startLive();};
+      row.appendChild(b);
+    });
+    const offK=keys(Object.assign(
+      Object.fromEntries('abcdefghijklmnopqrstuvwxyz'.split('').map(ch=>[ch,()=>type(ch.toUpperCase())])),
+      {Backspace:back,Delete:back,
+       ArrowRight:()=>{dir='A';paint();},ArrowDown:()=>{dir='D';paint();}}
+    ));
+    build();
+    timer=setInterval(()=>{if(!done){secs++;st.set('t',fmt(secs));}},1000);
+    return {stop(){clearInterval(timer);offK();
+      root.style.justifyContent='';root.style.overflowY='';root.style.gap='';}};
   }
 });
 
