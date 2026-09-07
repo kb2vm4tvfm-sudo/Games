@@ -1,0 +1,11 @@
+{
+  "name": "Airplane Mode — Offline Games",
+  "short_name": "Offline Games",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "description": "Ten games that run entirely on-device. No wifi, no signal, no ads."
+}
