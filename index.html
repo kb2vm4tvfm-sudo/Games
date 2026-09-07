@@ -2152,7 +2152,7 @@ renderCards();
 })();
 /* Optional: when this page is served over https, cache it so it also works
    offline as an installed home-screen app. Harmless (and skipped) on file://. */
-if(location.protocol==='https:'&&'serviceWorker'in navigator){
+if(window.isSecureContext&&location.protocol!=='file:'&&'serviceWorker'in navigator){
   try{navigator.serviceWorker.register('sw.js');}catch(e){}
 }
 document.addEventListener('gesturestart',e=>e.preventDefault());
